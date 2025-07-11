@@ -1,0 +1,117 @@
+<div
+  class="ngx-file-previewer"
+  [class]="'theme-' + theme + ' ' + customClass"
+  [attr.data-theme]="theme"
+>
+  <!-- Header -->
+  <div class="previewer-header">
+    <h2 class="previewer-title">
+      <span class="title-icon">📁</span>
+      Universal File Previewer
+    </h2>
+    <p class="previewer-subtitle">
+      Preview documents, spreadsheets, images, and text files instantly
+    </p>
+  </div>
+
+  <!-- Upload Area -->
+  <div
+    class="upload-area"
+    [class.drag-active]="dragActive"
+    [class.has-file]="selectedFile"
+    (click)="fileInput.click()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <input
+      #fileInput
+      type="file"
+      class="file-input"
+      [accept]="acceptedTypes"
+      (change)="onFileSelected($event)"
+    />
+
+    <div class="upload-content">
+      <div class="upload-icon">
+        <span *ngIf="!selectedFile">📤</span>
+        <span *ngIf="selectedFile">📎</span>
+      </div>
+
+      <div class="upload-text">
+        <p class="main-text" *ngIf="!selectedFile">
+          <strong>Click to upload</strong> or drag and drop
+        </p>
+        <p class="main-text" *ngIf="selectedFile">
+          <strong>{{ selectedFile.name }}</strong>
+        </p>
+
+        <p class="hint-text">
+          <span *ngIf="!selectedFile">
+            Supported: {{ supportedTypesText }}
+          </span>
+          <span *ngIf="selectedFile">
+            {{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB •
+            {{ selectedFile.type }}
+          </span>
+        </p>
+
+        <p class="size-limit">Maximum file size: {{ maxFileSizeMB }} MB</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Info Panel -->
+  <div class="file-info" *ngIf="selectedFile && mergedConfig.showFileInfo">
+    <div class="file-details">
+      <span class="file-icon">👁️</span>
+      <div class="file-text">
+        <span class="file-name">{{ selectedFile.name }}</span>
+        <span class="file-meta">
+          {{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB •
+          {{ selectedFile.type || "Unknown type" }} •
+          {{ selectedFile.lastModified | date : "short" }}
+        </span>
+      </div>
+    </div>
+
+    <div class="file-actions">
+      <button
+        class="btn btn-secondary"
+        (click)="generatePreview()"
+        [disabled]="loading"
+        *ngIf="!mergedConfig.autoPreview"
+      >
+        Generate Preview
+      </button>
+
+      <button class="btn btn-outline" (click)="clearPreview()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading">
+    <div class="spinner"></div>
+    <span class="loading-text">Processing file...</span>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-container" *ngIf="errorMessage" role="alert">
+    <span class="error-icon">⚠️</span>
+    <span class="error-text">{{ errorMessage }}</span>
+  </div>
+
+  <!-- Preview Container -->
+  <div class="preview-container" *ngIf="previewContent && !loading">
+    <div class="preview-header">
+      <h3 class="preview-title">File Preview</h3>
+      <div class="preview-actions">
+        <button class="btn btn-outline btn-sm" (click)="clearPreview()">
+          Close Preview
+        </button>
+      </div>
+    </div>
+
+    <div class="preview-content" [innerHTML]="previewContent"></div>
+  </div>
+</div>

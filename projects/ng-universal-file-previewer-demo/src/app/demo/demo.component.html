@@ -1,0 +1,83 @@
+<div class="demo-container">
+  <header class="demo-header">
+    <h1>🚀 Angular Universal File Previewer</h1>
+    <p>A powerful Angular library for previewing multiple file formats</p>
+
+    <div class="badges">
+      <span class="badge">PDF</span>
+      <span class="badge">Word</span>
+      <span class="badge">Excel</span>
+      <span class="badge">CSV</span>
+      <span class="badge">Images</span>
+      <span class="badge">Text</span>
+    </div>
+  </header>
+
+  <!-- Configuration Panel -->
+  <section class="config-section">
+    <h2>⚙️ Configuration</h2>
+
+    <div class="config-grid">
+      <div class="config-group">
+        <label for="theme">Theme:</label>
+        <select
+          id="theme"
+          [(ngModel)]="selectedTheme"
+          (change)="updateConfig()"
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+
+      <div class="config-group">
+        <label for="maxSize">Max Size (MB):</label>
+        <input
+          id="maxSize"
+          type="number"
+          [(ngModel)]="maxSizeMB"
+          (ngModelChange)="updateConfig()"
+          min="1"
+          max="100"
+        />
+      </div>
+
+      <div class="config-group">
+        <label>
+          <input
+            type="checkbox"
+            [(ngModel)]="autoPreview"
+            (change)="updateConfig()"
+          />
+          Auto Preview
+        </label>
+      </div>
+
+      <div class="config-group">
+        <label>
+          <input
+            type="checkbox"
+            [(ngModel)]="showFileInfo"
+            (change)="updateConfig()"
+          />
+          Show File Info
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Demo -->
+  <section class="demo-section">
+    <h2>📄 Interactive Demo</h2>
+
+    <ngx-file-previewer
+      [config]="config"
+      [theme]="selectedTheme"
+      customClass="demo-previewer"
+      (fileSelected)="onFileSelected($event)"
+      (previewReady)="onPreviewReady($event)"
+      (error)="onError($event)"
+    >
+    </ngx-file-previewer>
+  </section>
+</div>
