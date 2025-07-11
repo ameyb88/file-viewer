@@ -13,6 +13,9 @@ A powerful, universal file previewer library for Angular applications with suppo
 - 🔧 **Highly Configurable** with custom processors
 - 🚀 **Easy Integration** - just add one component
 
+## Live Demo
+- https://ameyb88.github.io/file-viewer/
+
 ## 🚀 Quick Start
 
 ### Installation
