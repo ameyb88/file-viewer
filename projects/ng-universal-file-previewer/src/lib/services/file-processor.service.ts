@@ -37,6 +37,33 @@ export class FileProcessorService {
     );
   }
 
+  // Add method for PDF page rendering
+  renderPdfPage(
+    file: File,
+    pageNumber: number,
+    scale: number = 1.2
+  ): Observable<string> {
+    return from(this.renderPdfPageAsync(file, pageNumber, scale)).pipe(
+      catchError((error) =>
+        throwError(
+          () => new Error(`Failed to render PDF page: ${error.message}`)
+        )
+      )
+    );
+  }
+
+  private async renderPdfPageAsync(
+    file: File,
+    pageNumber: number,
+    scale: number
+  ): Promise<string> {
+    if (this.pdfRenderer.isAvailable()) {
+      return await this.pdfRenderer.renderPdfPage(file, pageNumber, scale);
+    } else {
+      throw new Error('PDF.js not available');
+    }
+  }
+
   private async processFileAsync(
     file: File,
     type: FileType

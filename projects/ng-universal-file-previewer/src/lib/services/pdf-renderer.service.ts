@@ -14,10 +14,13 @@ export class PdfRendererService {
 
   private async initializePdfJs() {
     try {
+      // Add Promise.withResolvers polyfill before loading PDF.js
+      this.addPromisePolyfill();
+
       // Import PDF.js dynamically
       this.pdfjs = await import('pdfjs-dist');
 
-      // Set worker source - use a more compatible version
+      // Set worker source - MUST match the PDF.js version
       this.pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
 
       this.isInitialized = true;
@@ -25,6 +28,20 @@ export class PdfRendererService {
     } catch (error) {
       console.warn('PDF.js not available:', error);
       this.isInitialized = false;
+    }
+  }
+
+  private addPromisePolyfill() {
+    // Add Promise.withResolvers polyfill if not available
+    if (typeof Promise !== 'undefined' && !(Promise as any).withResolvers) {
+      (Promise as any).withResolvers = function () {
+        let resolve: any, reject: any;
+        const promise = new Promise((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { promise, resolve, reject };
+      };
     }
   }
 
@@ -114,7 +131,9 @@ export class PdfRendererService {
     const canvasDataUrl = canvas.toDataURL('image/png', 0.95);
 
     return `
-      <div class="pdf-viewer">
+      <div class="pdf-viewer" data-file-name="${file.name}" data-total-pages="${
+      pageInfo.totalPages
+    }" data-current-page="${pageInfo.currentPage}">
         <div class="preview-header">
           <h3>📄 PDF Document</h3>
           <div class="file-meta">
@@ -125,7 +144,7 @@ export class PdfRendererService {
         </div>
         
         <div class="pdf-controls">
-          <button class="pdf-btn" onclick="window.pdfPrevPage?.()" ${
+          <button class="pdf-btn" onclick="navigatePdfPage(-1)" ${
             pageInfo.currentPage <= 1 ? 'disabled' : ''
           }>
             ← Previous
@@ -133,14 +152,13 @@ export class PdfRendererService {
           <span class="page-info">
             Page ${pageInfo.currentPage} of ${pageInfo.totalPages}
           </span>
-          <button class="pdf-btn" onclick="window.pdfNextPage?.()" ${
+          <button class="pdf-btn" onclick="navigatePdfPage(1)" ${
             pageInfo.currentPage >= pageInfo.totalPages ? 'disabled' : ''
           }>
             Next →
           </button>
-          <button class="pdf-btn" onclick="window.pdfZoomIn?.()">🔍+</button>
-          <button class="pdf-btn" onclick="window.pdfZoomOut?.()">🔍-</button>
-          <button class="pdf-btn" onclick="window.pdfFitWidth?.()">Fit Width</button>
+          <button class="pdf-btn" onclick="changePdfScale(0.2)">🔍+</button>
+          <button class="pdf-btn" onclick="changePdfScale(-0.2)">🔍-</button>
           <button class="pdf-btn" onclick="window.open('${canvasDataUrl}', '_blank')">📥 Download Page</button>
         </div>
         
@@ -160,6 +178,51 @@ export class PdfRendererService {
           <p><strong>Current Page:</strong> ${pageInfo.currentPage}</p>
         </div>
       </div>
+      
+      <script>
+        // PDF Navigation State
+        window.pdfNavigationState = window.pdfNavigationState || {
+          currentPage: ${pageInfo.currentPage},
+          totalPages: ${pageInfo.totalPages},
+          fileName: '${file.name}',
+          scale: 1.2,
+          fileData: null
+        };
+        
+        // Store file data for navigation
+        if (!window.pdfNavigationState.fileData) {
+          // We'll need to store this differently since we can't pass File objects
+          window.pdfNavigationState.fileData = '${file.name}';
+        }
+        
+        // Navigation function
+        window.navigatePdfPage = function(direction) {
+          const newPage = window.pdfNavigationState.currentPage + direction;
+          if (newPage >= 1 && newPage <= window.pdfNavigationState.totalPages) {
+            // Trigger re-render with new page
+            window.pdfNavigationState.currentPage = newPage;
+            window.dispatchEvent(new CustomEvent('pdf-page-change', { 
+              detail: { 
+                page: newPage, 
+                fileName: window.pdfNavigationState.fileName 
+              } 
+            }));
+          }
+        };
+        
+        // Scale change function
+        window.changePdfScale = function(scaleChange) {
+          window.pdfNavigationState.scale += scaleChange;
+          window.pdfNavigationState.scale = Math.max(0.5, Math.min(3.0, window.pdfNavigationState.scale));
+          window.dispatchEvent(new CustomEvent('pdf-scale-change', { 
+            detail: { 
+              scale: window.pdfNavigationState.scale,
+              page: window.pdfNavigationState.currentPage,
+              fileName: window.pdfNavigationState.fileName 
+            } 
+          }));
+        };
+      </script>
     `;
   }
 

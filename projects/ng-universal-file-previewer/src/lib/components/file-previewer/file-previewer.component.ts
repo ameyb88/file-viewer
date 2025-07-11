@@ -53,11 +53,103 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.mergedConfig = { ...DEFAULT_CONFIG, ...this.config };
+
+    // Listen for PDF navigation events
+    this.setupPdfNavigation();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+
+    // Clean up PDF navigation listeners
+    this.cleanupPdfNavigation();
+  }
+
+  private setupPdfNavigation(): void {
+    // Listen for PDF page change events
+    window.addEventListener(
+      'pdf-page-change',
+      this.handlePdfPageChange.bind(this)
+    );
+    window.addEventListener(
+      'pdf-scale-change',
+      this.handlePdfScaleChange.bind(this)
+    );
+  }
+
+  private cleanupPdfNavigation(): void {
+    window.removeEventListener(
+      'pdf-page-change',
+      this.handlePdfPageChange.bind(this)
+    );
+    window.removeEventListener(
+      'pdf-scale-change',
+      this.handlePdfScaleChange.bind(this)
+    );
+  }
+
+  private handlePdfPageChange(event: any): void {
+    const { page, fileName } = event.detail;
+
+    // Check if this event is for the current file
+    if (
+      this.selectedFile &&
+      this.selectedFile.name === fileName &&
+      this.previewType === 'pdf'
+    ) {
+      this.setLoading(true);
+
+      // Re-render PDF with new page
+      this.fileProcessor
+        .processFile(this.selectedFile, 'pdf')
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (result: FilePreviewResult) => {
+            // Override the result to show the requested page
+            this.renderPdfPage(this.selectedFile!, page);
+          },
+          error: (error) => {
+            this.setError(`Error navigating PDF: ${error.message}`);
+            this.setLoading(false);
+          },
+        });
+    }
+  }
+
+  private handlePdfScaleChange(event: any): void {
+    const { scale, page, fileName } = event.detail;
+
+    // Check if this event is for the current file
+    if (
+      this.selectedFile &&
+      this.selectedFile.name === fileName &&
+      this.previewType === 'pdf'
+    ) {
+      this.setLoading(true);
+      this.renderPdfPage(this.selectedFile, page, scale);
+    }
+  }
+
+  private renderPdfPage(
+    file: File,
+    pageNumber: number,
+    scale: number = 1.2
+  ): void {
+    // Create a custom observable for PDF page rendering
+    this.fileProcessor
+      .renderPdfPage(file, pageNumber, scale)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (content: string) => {
+          this.previewContent = content;
+          this.setLoading(false);
+        },
+        error: (error) => {
+          this.setError(`Error rendering PDF page: ${error.message}`);
+          this.setLoading(false);
+        },
+      });
   }
 
   onFileSelected(event: Event): void {
