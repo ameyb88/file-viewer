@@ -101,11 +101,74 @@
     <span class="error-text">{{ errorMessage }}</span>
   </div>
 
+  <!-- PDF Controls (NEW - Added before preview container) -->
+  <div
+    class="pdf-controls-panel"
+    *ngIf="previewType === 'pdf' && previewContent && !loading && !errorMessage"
+  >
+    <div class="pdf-navigation">
+      <button
+        class="btn btn-outline btn-sm pdf-nav-btn"
+        [disabled]="!canNavigatePrev"
+        (click)="navigatePdfPage(-1)"
+      >
+        ← Previous
+      </button>
+
+      <span class="page-indicator">
+        Page {{ currentPdfPage }} of {{ totalPdfPages }}
+      </span>
+
+      <button
+        class="btn btn-outline btn-sm pdf-nav-btn"
+        [disabled]="!canNavigateNext"
+        (click)="navigatePdfPage(1)"
+      >
+        Next →
+      </button>
+    </div>
+
+    <div class="pdf-tools">
+      <button
+        class="btn btn-outline btn-sm pdf-tool-btn"
+        (click)="changePdfScale(-0.2)"
+        [disabled]="currentPdfScale <= 0.5"
+        title="Zoom Out"
+      >
+        🔍-
+      </button>
+
+      <span class="scale-indicator">{{ scalePercentage }}</span>
+
+      <button
+        class="btn btn-outline btn-sm pdf-tool-btn"
+        (click)="changePdfScale(0.2)"
+        [disabled]="currentPdfScale >= 3.0"
+        title="Zoom In"
+      >
+        🔍+
+      </button>
+
+      <button
+        class="btn btn-outline btn-sm pdf-tool-btn"
+        (click)="downloadCurrentPage()"
+        title="Download Current Page"
+      >
+        📥
+      </button>
+    </div>
+  </div>
+
   <!-- Preview Container -->
   <div class="preview-container" *ngIf="previewContent && !loading">
     <div class="preview-header">
       <h3 class="preview-title">File Preview</h3>
       <div class="preview-actions">
+        <!-- PDF-specific info (NEW) -->
+        <span class="pdf-info" *ngIf="previewType === 'pdf'">
+          {{ currentPdfPage }}/{{ totalPdfPages }} • {{ scalePercentage }}
+        </span>
+
         <button class="btn btn-outline btn-sm" (click)="clearPreview()">
           Close Preview
         </button>

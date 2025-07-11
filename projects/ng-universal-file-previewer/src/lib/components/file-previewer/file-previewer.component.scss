@@ -840,3 +840,135 @@
     border: 0;
   }
 }
+
+/* PDF Controls Panel */
+.pdf-controls-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: var(--background-secondary, #f8f9fa);
+  border: 1px solid var(--border-color, #e9ecef);
+  border-radius: 8px;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pdf-navigation {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pdf-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pdf-nav-btn,
+.pdf-tool-btn {
+  min-width: auto !important;
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-nav-btn {
+  min-width: 80px !important;
+}
+
+.pdf-tool-btn {
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+}
+
+.page-indicator,
+.scale-indicator {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6c757d);
+  white-space: nowrap;
+}
+
+.page-indicator {
+  padding: 0 0.5rem;
+  min-width: 100px;
+  text-align: center;
+}
+
+.scale-indicator {
+  min-width: 50px;
+  text-align: center;
+  font-family: monospace;
+}
+
+/* PDF info in preview header */
+.pdf-info {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6c757d);
+  margin-right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--background-tertiary, #e9ecef);
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pdf-controls-panel {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pdf-navigation,
+  .pdf-tools {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .page-indicator {
+    min-width: auto;
+  }
+}
+
+/* Dark theme support */
+[data-theme="dark"] .pdf-controls-panel {
+  background: var(--background-secondary-dark, #2d3748);
+  border-color: var(--border-color-dark, #4a5568);
+}
+
+[data-theme="dark"] .page-indicator,
+[data-theme="dark"] .scale-indicator {
+  color: var(--text-secondary-dark, #a0aec0);
+}
+
+[data-theme="dark"] .pdf-info {
+  background: var(--background-tertiary-dark, #4a5568);
+  color: var(--text-secondary-dark, #a0aec0);
+}
+
+/* Disabled state styling */
+.pdf-nav-btn:disabled,
+.pdf-tool-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Hover effects for enabled buttons */
+.pdf-nav-btn:not(:disabled):hover,
+.pdf-tool-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Focus states for accessibility */
+.pdf-nav-btn:focus,
+.pdf-tool-btn:focus {
+  outline: 2px solid var(--primary-color, #007bff);
+  outline-offset: 2px;
+}

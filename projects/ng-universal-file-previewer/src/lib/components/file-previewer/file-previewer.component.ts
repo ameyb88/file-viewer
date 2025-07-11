@@ -6,6 +6,8 @@ import {
   EventEmitter,
   OnInit,
   OnDestroy,
+  ElementRef,
+  Renderer2,
 } from '@angular/core';
 import { Subject, takeUntil } from 'rxjs';
 import { FileProcessorService } from '../../services/file-processor.service';
@@ -24,7 +26,7 @@ import {
   styleUrls: ['./file-previewer.component.scss'],
 })
 export class FilePreviewerComponent implements OnInit, OnDestroy {
-  // Input properties - THESE WERE MISSING!
+  // Input properties
   @Input() config: Partial<FilePreviewConfig> = {};
   @Input() theme: 'light' | 'dark' = 'light';
   @Input() customClass = '';
@@ -43,91 +45,66 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
   errorMessage = '';
   dragActive = false;
 
+  // PDF-specific state
+  currentPdfPage = 1;
+  currentPdfScale = 1.2;
+  totalPdfPages = 0;
+
   private destroy$ = new Subject<void>();
   mergedConfig: Required<FilePreviewConfig> = DEFAULT_CONFIG;
 
   constructor(
     private fileProcessor: FileProcessorService,
-    private fileValidator: FileValidatorService
+    private fileValidator: FileValidatorService,
+    private renderer: Renderer2,
+    private el: ElementRef
   ) {}
 
   ngOnInit(): void {
     this.mergedConfig = { ...DEFAULT_CONFIG, ...this.config };
-
-    // Listen for PDF navigation events
-    this.setupPdfNavigation();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-
-    // Clean up PDF navigation listeners
-    this.cleanupPdfNavigation();
   }
 
-  private setupPdfNavigation(): void {
-    // Listen for PDF page change events
-    window.addEventListener(
-      'pdf-page-change',
-      this.handlePdfPageChange.bind(this)
-    );
-    window.addEventListener(
-      'pdf-scale-change',
-      this.handlePdfScaleChange.bind(this)
-    );
-  }
+  // PDF Navigation Methods
+  navigatePdfPage(direction: number): void {
+    if (!this.selectedFile || this.previewType !== 'pdf') return;
 
-  private cleanupPdfNavigation(): void {
-    window.removeEventListener(
-      'pdf-page-change',
-      this.handlePdfPageChange.bind(this)
-    );
-    window.removeEventListener(
-      'pdf-scale-change',
-      this.handlePdfScaleChange.bind(this)
-    );
-  }
-
-  private handlePdfPageChange(event: any): void {
-    const { page, fileName } = event.detail;
-
-    // Check if this event is for the current file
-    if (
-      this.selectedFile &&
-      this.selectedFile.name === fileName &&
-      this.previewType === 'pdf'
-    ) {
-      this.setLoading(true);
-
-      // Re-render PDF with new page
-      this.fileProcessor
-        .processFile(this.selectedFile, 'pdf')
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (result: FilePreviewResult) => {
-            // Override the result to show the requested page
-            this.renderPdfPage(this.selectedFile!, page);
-          },
-          error: (error) => {
-            this.setError(`Error navigating PDF: ${error.message}`);
-            this.setLoading(false);
-          },
-        });
+    const newPage = this.currentPdfPage + direction;
+    if (newPage >= 1 && newPage <= this.totalPdfPages) {
+      this.currentPdfPage = newPage;
+      this.renderPdfPage(this.selectedFile, newPage, this.currentPdfScale);
     }
   }
 
-  private handlePdfScaleChange(event: any): void {
-    const { scale, page, fileName } = event.detail;
+  changePdfScale(scaleChange: number): void {
+    if (!this.selectedFile || this.previewType !== 'pdf') return;
 
-    // Check if this event is for the current file
-    if (
-      this.selectedFile &&
-      this.selectedFile.name === fileName &&
-      this.previewType === 'pdf'
-    ) {
-      this.setLoading(true);
-      this.renderPdfPage(this.selectedFile, page, scale);
+    const newScale = this.currentPdfScale + scaleChange;
+    const clampedScale = Math.max(0.5, Math.min(3.0, newScale));
+
+    if (clampedScale !== this.currentPdfScale) {
+      this.currentPdfScale = clampedScale;
+      this.renderPdfPage(this.selectedFile, this.currentPdfPage, clampedScale);
+    }
+  }
+
+  downloadCurrentPage(): void {
+    // Extract the image data URL from the current preview content
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(this.previewContent, 'text/html');
+    const img = doc.querySelector('.pdf-page-image') as HTMLImageElement;
+
+    if (img && img.src) {
+      const link = document.createElement('a');
+      link.href = img.src;
+      link.download = `${this.selectedFile?.name}_page_${this.currentPdfPage}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   }
 
@@ -136,13 +113,15 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
     pageNumber: number,
     scale: number = 1.2
   ): void {
-    // Create a custom observable for PDF page rendering
+    this.setLoading(true);
+
     this.fileProcessor
       .renderPdfPage(file, pageNumber, scale)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (content: string) => {
           this.previewContent = content;
+          this.extractPdfInfo(content);
           this.setLoading(false);
         },
         error: (error) => {
@@ -150,6 +129,21 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
           this.setLoading(false);
         },
       });
+  }
+
+  private extractPdfInfo(content: string): void {
+    // Extract total pages from the rendered content
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+    const pdfViewer = doc.querySelector('.pdf-viewer');
+
+    if (pdfViewer) {
+      const totalPages = pdfViewer.getAttribute('data-total-pages');
+      const currentPage = pdfViewer.getAttribute('data-current-page');
+
+      if (totalPages) this.totalPdfPages = parseInt(totalPages, 10);
+      if (currentPage) this.currentPdfPage = parseInt(currentPage, 10);
+    }
   }
 
   onFileSelected(event: Event): void {
@@ -186,6 +180,9 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
     this.previewContent = '';
     this.previewType = 'unknown';
     this.errorMessage = '';
+    this.currentPdfPage = 1;
+    this.currentPdfScale = 1.2;
+    this.totalPdfPages = 0;
   }
 
   generatePreview(file?: File, fileType?: FileType): void {
@@ -199,6 +196,13 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
 
     this.setLoading(true);
 
+    // For PDF files, use the current page and scale
+    if (targetType === 'pdf') {
+      this.renderPdfPage(targetFile, this.currentPdfPage, this.currentPdfScale);
+      return;
+    }
+
+    // For other file types, use the regular processor
     this.fileProcessor
       .processFile(targetFile, targetType)
       .pipe(takeUntil(this.destroy$))
@@ -231,10 +235,27 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
     return this.mergedConfig.supportedTypes.join(', ').toUpperCase();
   }
 
+  get canNavigatePrev(): boolean {
+    return this.previewType === 'pdf' && this.currentPdfPage > 1;
+  }
+
+  get canNavigateNext(): boolean {
+    return (
+      this.previewType === 'pdf' && this.currentPdfPage < this.totalPdfPages
+    );
+  }
+
+  get scalePercentage(): string {
+    return Math.round(this.currentPdfScale * 100) + '%';
+  }
+
   private processFile(file: File): void {
     // Reset state
     this.errorMessage = '';
     this.previewContent = '';
+    this.currentPdfPage = 1;
+    this.currentPdfScale = 1.2;
+    this.totalPdfPages = 0;
 
     // Validate file
     const validation = this.fileValidator.validateFile(file, this.mergedConfig);

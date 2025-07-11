@@ -116,114 +116,64 @@ export class PdfRendererService {
       };
 
       // Return HTML with rendered canvas
-      return this.generatePdfHtml(canvas, file, pageInfo);
+      return this.generatePdfHtml(canvas, file, pageInfo, scale);
     } catch (error) {
       console.error('PDF rendering error:', error);
       throw new Error(`Failed to render PDF: ${error}`);
     }
   }
 
+  // Updated generatePdfHtml method for PdfRendererService
+  // Clean PDF HTML generation without JavaScript functions
   private generatePdfHtml(
     canvas: HTMLCanvasElement,
     file: File,
-    pageInfo: any
+    pageInfo: any,
+    currentScale: number = 1.2
   ): string {
     const canvasDataUrl = canvas.toDataURL('image/png', 0.95);
 
     return `
-      <div class="pdf-viewer" data-file-name="${file.name}" data-total-pages="${
-      pageInfo.totalPages
-    }" data-current-page="${pageInfo.currentPage}">
-        <div class="preview-header">
-          <h3>📄 PDF Document</h3>
-          <div class="file-meta">
-            <span>${file.name}</span>
-            <span>${(file.size / 1024 / 1024).toFixed(2)} MB</span>
-            <span>Page ${pageInfo.currentPage} of ${pageInfo.totalPages}</span>
-          </div>
+    <div class="pdf-viewer" 
+         data-file-name="${file.name}" 
+         data-total-pages="${pageInfo.totalPages}" 
+         data-current-page="${pageInfo.currentPage}"
+         data-scale="${currentScale}">
+      <div class="pdf-document-header">
+        <div class="pdf-title">
+          <span class="pdf-icon">📄</span>
+          <span class="pdf-name">${file.name}</span>
         </div>
-        
-        <div class="pdf-controls">
-          <button class="pdf-btn" onclick="navigatePdfPage(-1)" ${
-            pageInfo.currentPage <= 1 ? 'disabled' : ''
-          }>
-            ← Previous
-          </button>
-          <span class="page-info">
-            Page ${pageInfo.currentPage} of ${pageInfo.totalPages}
-          </span>
-          <button class="pdf-btn" onclick="navigatePdfPage(1)" ${
-            pageInfo.currentPage >= pageInfo.totalPages ? 'disabled' : ''
-          }>
-            Next →
-          </button>
-          <button class="pdf-btn" onclick="changePdfScale(0.2)">🔍+</button>
-          <button class="pdf-btn" onclick="changePdfScale(-0.2)">🔍-</button>
-          <button class="pdf-btn" onclick="window.open('${canvasDataUrl}', '_blank')">📥 Download Page</button>
-        </div>
-        
-        <div class="pdf-canvas-container">
-          <img src="${canvasDataUrl}" 
-               alt="PDF Page ${pageInfo.currentPage}" 
-               class="pdf-page-image"
-               style="max-width: 100%; height: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px;">
-        </div>
-        
-        <div class="pdf-info">
-          <p><strong>Document:</strong> ${file.name}</p>
-          <p><strong>Pages:</strong> ${pageInfo.totalPages}</p>
-          <p><strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(
+        <div class="pdf-metadata">
+          <span class="pdf-size">${(file.size / 1024 / 1024).toFixed(
             2
-          )} MB</p>
-          <p><strong>Current Page:</strong> ${pageInfo.currentPage}</p>
+          )} MB</span>
+          <span class="pdf-page-count">${pageInfo.totalPages} pages</span>
         </div>
       </div>
       
-      <script>
-        // PDF Navigation State
-        window.pdfNavigationState = window.pdfNavigationState || {
-          currentPage: ${pageInfo.currentPage},
-          totalPages: ${pageInfo.totalPages},
-          fileName: '${file.name}',
-          scale: 1.2,
-          fileData: null
-        };
-        
-        // Store file data for navigation
-        if (!window.pdfNavigationState.fileData) {
-          // We'll need to store this differently since we can't pass File objects
-          window.pdfNavigationState.fileData = '${file.name}';
-        }
-        
-        // Navigation function
-        window.navigatePdfPage = function(direction) {
-          const newPage = window.pdfNavigationState.currentPage + direction;
-          if (newPage >= 1 && newPage <= window.pdfNavigationState.totalPages) {
-            // Trigger re-render with new page
-            window.pdfNavigationState.currentPage = newPage;
-            window.dispatchEvent(new CustomEvent('pdf-page-change', { 
-              detail: { 
-                page: newPage, 
-                fileName: window.pdfNavigationState.fileName 
-              } 
-            }));
-          }
-        };
-        
-        // Scale change function
-        window.changePdfScale = function(scaleChange) {
-          window.pdfNavigationState.scale += scaleChange;
-          window.pdfNavigationState.scale = Math.max(0.5, Math.min(3.0, window.pdfNavigationState.scale));
-          window.dispatchEvent(new CustomEvent('pdf-scale-change', { 
-            detail: { 
-              scale: window.pdfNavigationState.scale,
-              page: window.pdfNavigationState.currentPage,
-              fileName: window.pdfNavigationState.fileName 
-            } 
-          }));
-        };
-      </script>
-    `;
+      <div class="pdf-canvas-container">
+        <img src="${canvasDataUrl}" 
+             alt="PDF Page ${pageInfo.currentPage}" 
+             class="pdf-page-image"
+             style="max-width: 100%; height: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; display: block; margin: 0 auto;">
+      </div>
+      
+      <div class="pdf-document-info">
+        <div class="pdf-stats">
+          <span><strong>Current Page:</strong> ${pageInfo.currentPage} of ${
+      pageInfo.totalPages
+    }</span>
+          <span><strong>Scale:</strong> ${Math.round(
+            currentScale * 100
+          )}%</span>
+          <span><strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(
+            2
+          )} MB</span>
+        </div>
+      </div>
+    </div>
+  `;
   }
 
   async getPdfInfo(
