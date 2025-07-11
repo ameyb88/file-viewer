@@ -9,6 +9,7 @@ import {
   FilePreviewResult,
   FileMetadata,
 } from '../models/file-types';
+import { PdfRendererService } from './pdf-renderer.service';
 
 @Injectable({
   providedIn: 'root',
@@ -19,7 +20,7 @@ export class FileProcessorService {
     (file: File) => Promise<string>
   >();
 
-  constructor() {}
+  constructor(private pdfRenderer: PdfRendererService) {}
 
   registerCustomProcessor(
     type: FileType,
@@ -49,7 +50,7 @@ export class FileProcessorService {
 
     // Default processors
     let content: string;
-    let metadata: FileMetadata = this.extractMetadata(file); // Initialize metadata first
+    let metadata: FileMetadata = this.extractMetadata(file);
 
     switch (type) {
       case 'pdf':
@@ -62,7 +63,7 @@ export class FileProcessorService {
       case 'xls':
         const excelResult = await this.processExcel(file);
         content = excelResult.content;
-        metadata = { ...metadata, ...excelResult.metadata }; // Merge with base metadata
+        metadata = { ...metadata, ...excelResult.metadata };
         break;
       case 'docx':
         content = await this.processDocx(file);
@@ -79,7 +80,7 @@ export class FileProcessorService {
       case 'image':
         const imageResult = await this.processImage(file);
         content = imageResult.content;
-        metadata = { ...metadata, ...imageResult.metadata }; // Merge with base metadata
+        metadata = { ...metadata, ...imageResult.metadata };
         break;
       default:
         throw new Error(`Unsupported file type: ${type}`);
@@ -93,35 +94,70 @@ export class FileProcessorService {
   }
 
   private async processPDF(file: File): Promise<string> {
-    return `
-      <div class="pdf-preview">
-        <div class="preview-header">
-          <h3>📄 PDF Document</h3>
-          <div class="file-meta">
-            <span>${file.name}</span>
-            <span>${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+    try {
+      // Check if PDF renderer is available
+      if (this.pdfRenderer.isAvailable()) {
+        return await this.pdfRenderer.renderPdfPage(file, 1, 1.2);
+      } else {
+        throw new Error('PDF.js not available');
+      }
+    } catch (error) {
+      console.warn(
+        'PDF.js rendering failed, showing enhanced placeholder:',
+        error
+      );
+
+      // Enhanced fallback with better error information
+      return `
+        <div class="pdf-preview">
+          <div class="preview-header">
+            <h3>📄 PDF Document</h3>
+            <div class="file-meta">
+              <span>${file.name}</span>
+              <span>${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+            </div>
+          </div>
+          <div class="pdf-placeholder">
+            <div class="pdf-icon">📑</div>
+            <h4>PDF Preview Available</h4>
+            <p><strong>File:</strong> ${file.name}</p>
+            <p><strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(
+              2
+            )} MB</p>
+            
+            <div class="pdf-error">
+              <h5>⚠️ PDF Rendering Issue</h5>
+              <p><strong>Error:</strong> ${error}</p>
+              <p>This could be due to:</p>
+              <ul>
+                <li>PDF.js library not properly loaded</li>
+                <li>Browser compatibility issues</li>
+                <li>Complex PDF structure</li>
+                <li>Network connectivity problems</li>
+              </ul>
+            </div>
+            
+            <div class="integration-note">
+              <h5>🚀 Enhanced PDF Features Available</h5>
+              <p>For full PDF rendering capabilities:</p>
+              <ul>
+                <li>✓ Full document rendering</li>
+                <li>✓ Page navigation</li>
+                <li>✓ Zoom controls</li>
+                <li>✓ Text selection</li>
+                <li>✓ Search within document</li>
+              </ul>
+              
+              <div class="setup-instructions">
+                <h6>Setup Instructions:</h6>
+                <code>npm install pdfjs-dist@3.4.120</code>
+                <p>Then refresh the page to enable PDF rendering.</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="pdf-placeholder">
-          <div class="pdf-icon">📑</div>
-          <h4>PDF Preview Ready</h4>
-          <p>File: ${file.name}</p>
-          <p>Size: ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
-          <div class="integration-note">
-            <h5>Enhanced PDF Features Available:</h5>
-            <p>Integrate PDF.js for advanced functionality:</p>
-            <ul>
-              <li>✓ Full document rendering</li>
-              <li>✓ Page navigation</li>
-              <li>✓ Zoom controls</li>
-              <li>✓ Text selection</li>
-              <li>✓ Search within document</li>
-            </ul>
-            <code>npm install pdfjs-dist</code>
-          </div>
-        </div>
-      </div>
-    `;
+      `;
+    }
   }
 
   private async processCSV(file: File): Promise<string> {
@@ -356,6 +392,9 @@ export class FileProcessorService {
     const url = URL.createObjectURL(file);
     const dimensions = await this.getImageDimensions(file);
 
+    // Generate unique ID for this image instance
+    const imageId = 'img_' + Math.random().toString(36).substr(2, 9);
+
     const content = `
       <div class="image-preview">
         <div class="preview-header">
@@ -365,8 +404,26 @@ export class FileProcessorService {
             <span>${(file.size / 1024).toFixed(1)} KB</span>
           </div>
         </div>
-        <div class="image-container">
-          <img src="${url}" alt="Preview" class="preview-image" />
+        <div class="image-container" id="container-${imageId}">
+          <div class="image-controls">
+            <button class="zoom-btn" onclick="toggleImageZoom('${imageId}')">
+              🔍 Toggle Zoom
+            </button>
+            <button class="zoom-btn" onclick="window.open('${url}', '_blank')">
+              🖼️ Open Full Size
+            </button>
+            <button class="zoom-btn" onclick="downloadImage('${url}', '${
+      file.name
+    }')">
+              📥 Download
+            </button>
+          </div>
+          <img id="${imageId}"
+               src="${url}" 
+               alt="Preview of ${file.name}" 
+               class="preview-image"
+               onclick="toggleImageZoom('${imageId}')"
+               style="max-width: 100%; max-height: 400px; object-fit: contain; cursor: pointer; transition: all 0.3s ease;" />
         </div>
         <div class="image-details">
           <table class="details-table">
@@ -384,6 +441,36 @@ export class FileProcessorService {
           </table>
         </div>
       </div>
+      
+      <script>
+        // Global functions for image zoom and download
+        window.toggleImageZoom = function(imageId) {
+          const img = document.getElementById(imageId);
+          const container = document.getElementById('container-' + imageId);
+          if (img && container) {
+            img.classList.toggle('zoomed');
+            container.classList.toggle('has-zoomed-image');
+          }
+        };
+        
+        window.downloadImage = function(url, filename) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+        
+        // Close zoom when clicking outside image
+        document.addEventListener('click', function(e) {
+          if (e.target.classList.contains('has-zoomed-image')) {
+            e.target.classList.remove('has-zoomed-image');
+            const img = e.target.querySelector('.preview-image');
+            if (img) img.classList.remove('zoomed');
+          }
+        });
+      </script>
     `;
 
     return {
