@@ -413,96 +413,191 @@ export class FileProcessorService {
     `;
   }
 
+  // Replace your processImage method with this super aggressive version
+
   private async processImage(
     file: File
   ): Promise<{ content: string; metadata: Partial<FileMetadata> }> {
     const url = URL.createObjectURL(file);
     const dimensions = await this.getImageDimensions(file);
 
+    // MUCH smaller size limits for preview
+    const maxDisplayWidth = 800; // Increased from 200
+    const maxDisplayHeight = 600; // Increased from 150
+
+    let displayWidth = dimensions.width;
+    let displayHeight = dimensions.height;
+
+    // Always scale down if image is larger than our max preview size
+    if (displayWidth > maxDisplayWidth || displayHeight > maxDisplayHeight) {
+      const aspectRatio = displayWidth / displayHeight;
+
+      if (displayWidth > displayHeight) {
+        // Landscape orientation
+        displayWidth = maxDisplayWidth;
+        displayHeight = maxDisplayWidth / aspectRatio;
+      } else {
+        // Portrait orientation
+        displayHeight = maxDisplayHeight;
+        displayWidth = maxDisplayHeight * aspectRatio;
+      }
+
+      // Double-check we don't exceed either dimension
+      if (displayHeight > maxDisplayHeight) {
+        displayHeight = maxDisplayHeight;
+        displayWidth = maxDisplayHeight * aspectRatio;
+      }
+      if (displayWidth > maxDisplayWidth) {
+        displayWidth = maxDisplayWidth;
+        displayHeight = maxDisplayWidth / aspectRatio;
+      }
+    }
+
     // Generate unique ID for this image instance
     const imageId = 'img_' + Math.random().toString(36).substr(2, 9);
 
     const content = `
-      <div class="image-preview">
-        <div class="preview-header">
-          <h3>🖼️ Image File</h3>
-          <div class="file-meta">
-            <span>${dimensions.width} × ${dimensions.height}px</span>
-            <span>${(file.size / 1024).toFixed(1)} KB</span>
-          </div>
-        </div>
-        <div class="image-container" id="container-${imageId}">
-          <div class="image-controls">
-            <button class="zoom-btn" onclick="toggleImageZoom('${imageId}')">
-              🔍 Toggle Zoom
-            </button>
-            <button class="zoom-btn" onclick="window.open('${url}', '_blank')">
-              🖼️ Open Full Size
-            </button>
-            <button class="zoom-btn" onclick="downloadImage('${url}', '${
-      file.name
-    }')">
-              📥 Download
-            </button>
-          </div>
-          <img id="${imageId}"
-               src="${url}" 
-               alt="Preview of ${file.name}" 
-               class="preview-image"
-               onclick="toggleImageZoom('${imageId}')"
-               style="max-width: 100%; max-height: 400px; object-fit: contain; cursor: pointer; transition: all 0.3s ease;" />
-        </div>
-        <div class="image-details">
-          <table class="details-table">
-            <tr><td><strong>Filename:</strong></td><td>${file.name}</td></tr>
-            <tr><td><strong>Type:</strong></td><td>${file.type}</td></tr>
-            <tr><td><strong>Size:</strong></td><td>${(file.size / 1024).toFixed(
-              1
-            )} KB</td></tr>
-            <tr><td><strong>Dimensions:</strong></td><td>${
-              dimensions.width
-            } × ${dimensions.height} pixels</td></tr>
-            <tr><td><strong>Last Modified:</strong></td><td>${new Date(
-              file.lastModified
-            ).toLocaleString()}</td></tr>
-          </table>
+    <div class="image-preview">
+      <div class="preview-header">
+        <h3>🖼️ Image File</h3>
+        <div class="file-meta">
+          <span>${dimensions.width} × ${dimensions.height}px</span>
+          <span>${(file.size / 1024).toFixed(1)} KB</span>
         </div>
       </div>
+      <div class="image-container" id="container-${imageId}">
+        <div class="image-controls">
+          <button class="zoom-btn" onclick="toggleImageZoom('${imageId}')">
+            🔍 View Full Size
+          </button>
+          <button class="zoom-btn" onclick="window.open('${url}', '_blank')">
+            🖼️ Open in New Tab
+          </button>
+          <button class="zoom-btn" onclick="downloadImage('${url}', '${
+      file.name
+    }')">
+            📥 Download
+          </button>
+        </div>
+        <div class="image-wrapper">
+  <img id="${imageId}"
+       src="${url}" 
+       alt="Preview of ${file.name}" 
+       onclick="toggleImageZoom('${imageId}')"
+       width="${Math.round(displayWidth)}"
+       height="${Math.round(displayHeight)}"
+       style="
+         width: ${Math.round(displayWidth)}px !important;
+         height: ${Math.round(displayHeight)}px !important;
+         object-fit: contain !important;
+         cursor: pointer !important;
+         display: block !important;
+         margin: 0 auto !important;
+       " />
+</div>
+      </div>
+      <div class="image-details">
+        <table class="details-table">
+          <tr><td><strong>Filename:</strong></td><td>${file.name}</td></tr>
+          <tr><td><strong>Type:</strong></td><td>${file.type}</td></tr>
+          <tr><td><strong>Size:</strong></td><td>${(file.size / 1024).toFixed(
+            1
+          )} KB</td></tr>
+          <tr><td><strong>Original Dimensions:</strong></td><td>${
+            dimensions.width
+          } × ${dimensions.height} pixels</td></tr>
+          <tr><td><strong>Display Dimensions:</strong></td><td>${Math.round(
+            displayWidth
+          )} × ${Math.round(displayHeight)} pixels</td></tr>
+          <tr><td><strong>Scale Factor:</strong></td><td>${(
+            Math.min(
+              displayWidth / dimensions.width,
+              displayHeight / dimensions.height
+            ) * 100
+          ).toFixed(1)}%</td></tr>
+          <tr><td><strong>Last Modified:</strong></td><td>${new Date(
+            file.lastModified
+          ).toLocaleString()}</td></tr>
+        </table>
+      </div>
+    </div>
+    
+    <script>
+      // Global functions for image zoom and download
+      window.toggleImageZoom = function(imageId) {
+        const img = document.getElementById(imageId);
+        const container = document.getElementById('container-' + imageId);
+        if (img && container) {
+          if (img.classList.contains('zoomed')) {
+            // Zoom out - return to preview size
+            img.classList.remove('zoomed');
+            container.classList.remove('has-zoomed-image');
+            img.style.position = 'static';
+            img.style.top = 'auto';
+            img.style.left = 'auto';
+            img.style.transform = 'none';
+            img.style.zIndex = 'auto';
+            img.style.width = '${Math.round(displayWidth)}px';
+            img.style.height = '${Math.round(displayHeight)}px';
+            img.style.maxWidth = '${Math.round(displayWidth)}px';
+            img.style.maxHeight = '${Math.round(displayHeight)}px';
+            img.style.minWidth = '${Math.round(displayWidth)}px';
+            img.style.minHeight = '${Math.round(displayHeight)}px';
+            img.style.cursor = 'pointer';
+            img.style.padding = '0';
+            img.style.background = 'transparent';
+          } else {
+            // Zoom in - show full size
+            img.classList.add('zoomed');
+            container.classList.add('has-zoomed-image');
+            img.style.position = 'fixed';
+            img.style.top = '50%';
+            img.style.left = '50%';
+            img.style.transform = 'translate(-50%, -50%)';
+            img.style.zIndex = '1000';
+            img.style.width = 'auto';
+            img.style.height = 'auto';
+            img.style.maxWidth = '95vw';
+            img.style.maxHeight = '95vh';
+            img.style.minWidth = 'auto';
+            img.style.minHeight = 'auto';
+            img.style.cursor = 'zoom-out';
+            img.style.padding = '8px';
+            img.style.background = 'white';
+          }
+        }
+      };
       
-      <script>
-        // Global functions for image zoom and download
-        window.toggleImageZoom = function(imageId) {
-          const img = document.getElementById(imageId);
-          const container = document.getElementById('container-' + imageId);
-          if (img && container) {
-            img.classList.toggle('zoomed');
-            container.classList.toggle('has-zoomed-image');
+      window.downloadImage = function(url, filename) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      
+      // Close zoom when clicking outside image
+      document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('has-zoomed-image')) {
+          const img = e.target.querySelector('.preview-image');
+          if (img) {
+            img.click(); // Trigger toggle to zoom out
           }
-        };
-        
-        window.downloadImage = function(url, filename) {
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        };
-        
-        // Close zoom when clicking outside image
-        document.addEventListener('click', function(e) {
-          if (e.target.classList.contains('has-zoomed-image')) {
-            e.target.classList.remove('has-zoomed-image');
-            const img = e.target.querySelector('.preview-image');
-            if (img) img.classList.remove('zoomed');
-          }
-        });
-      </script>
-    `;
+        }
+      });
+    </script>
+  `;
 
     return {
       content,
-      metadata: { dimensions },
+      metadata: {
+        dimensions,
+        displayDimensions: {
+          width: Math.round(displayWidth),
+          height: Math.round(displayHeight),
+        },
+      },
     };
   }
 

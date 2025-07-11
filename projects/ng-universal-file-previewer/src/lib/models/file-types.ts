@@ -20,6 +20,7 @@ export interface FileMetadata {
   type: string;
   lastModified: Date;
   dimensions?: { width: number; height: number };
+  displayDimensions?: { width: number; height: number };
   pageCount?: number;
   sheetNames?: string[];
 }
