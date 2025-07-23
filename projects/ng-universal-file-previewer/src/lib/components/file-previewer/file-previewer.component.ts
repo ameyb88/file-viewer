@@ -1,4 +1,5 @@
-// projects/ng-universal-file-previewer/src/lib/components/file-previewer/file-previewer.component.ts
+// Add this to your existing file-previewer.component.ts
+
 import {
   Component,
   Input,
@@ -6,6 +7,8 @@ import {
   EventEmitter,
   OnInit,
   OnDestroy,
+  OnChanges,
+  SimpleChanges,
   ElementRef,
   Renderer2,
 } from '@angular/core';
@@ -25,11 +28,12 @@ import {
   templateUrl: './file-previewer.component.html',
   styleUrls: ['./file-previewer.component.scss'],
 })
-export class FilePreviewerComponent implements OnInit, OnDestroy {
+export class FilePreviewerComponent implements OnInit, OnDestroy, OnChanges {
   // Input properties
   @Input() config: Partial<FilePreviewConfig> = {};
   @Input() theme: 'light' | 'dark' = 'light';
   @Input() customClass = '';
+  @Input() preloadFile: File | null = null; // NEW: Add this input
 
   // Output properties
   @Output() fileSelected = new EventEmitter<File>();
@@ -64,9 +68,22 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
     this.mergedConfig = { ...DEFAULT_CONFIG, ...this.config };
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    // NEW: Handle preloaded file changes
+    if (changes['preloadFile'] && changes['preloadFile'].currentValue) {
+      const file = changes['preloadFile'].currentValue;
+      this.processFile(file);
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  // NEW: Public method to process a file programmatically
+  public processFileDirectly(file: File): void {
+    this.processFile(file);
   }
 
   // PDF Navigation Methods
@@ -93,7 +110,6 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
   }
 
   downloadCurrentPage(): void {
-    // Extract the image data URL from the current preview content
     const parser = new DOMParser();
     const doc = parser.parseFromString(this.previewContent, 'text/html');
     const img = doc.querySelector('.pdf-page-image') as HTMLImageElement;
@@ -132,7 +148,6 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
   }
 
   private extractPdfInfo(content: string): void {
-    // Extract total pages from the rendered content
     const parser = new DOMParser();
     const doc = parser.parseFromString(content, 'text/html');
     const pdfViewer = doc.querySelector('.pdf-viewer');
@@ -196,13 +211,11 @@ export class FilePreviewerComponent implements OnInit, OnDestroy {
 
     this.setLoading(true);
 
-    // For PDF files, use the current page and scale
     if (targetType === 'pdf') {
       this.renderPdfPage(targetFile, this.currentPdfPage, this.currentPdfScale);
       return;
     }
 
-    // For other file types, use the regular processor
     this.fileProcessor
       .processFile(targetFile, targetType)
       .pipe(takeUntil(this.destroy$))
